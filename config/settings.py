@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from decouple import AutoConfig
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -46,7 +47,22 @@ DATABASES = {
         "PORT":     os.getenv("DB_PORT"),
     }
 }
-# Application definition
+
+# 이메일 설정
+EMAIL_BACKEND       = "django.core.mail.backends.smtp.EmailBackend"
+DEFAULT_FROM_EMAIL  = os.getenv("DEFAULT_FROM_EMAIL")
+ADMIN_EMAIL         = os.getenv("ADMIN_EMAIL")
+EMAIL_HOST          = os.getenv("EMAIL_HOST")
+EMAIL_PORT          = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_HOST_USER     = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS       = os.getenv("EMAIL_USE_TLS", "False") == "True"
+
+# Twilio SMS 설정
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN  = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER")
+TWILIO_ADMIN_NUMBER= os.getenv("TWILIO_ADMIN_NUMBER")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -55,6 +71,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'apps.inquiries',
 ]
 
 MIDDLEWARE = [
