@@ -1,0 +1,55 @@
+# ────────────────────────────────────────────────────────────────────────────────
+# Python byte-code, venv, cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 가상환경
+.venv/
+damoa/
+
+# dotenv 환경변수 파일
+.env
+envs/
+
+# Django
+db.sqlite3
+*.log
+staticfiles/
+media/
+
+# 마이그레이션 캐시
+**/migrations/*.py[cod]
+**/migrations/__pycache__/
+
+# IDE
+.idea/
+.vscode/
+
+# GitGuardian 캐시
+.cache_ggshield/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 빌드/배포 아티팩트
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 테스트 커버리지
+htmlcov/
+.coverage
+coverage.xml
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# 로컬 설정 (예: local_settings.py)
+local_settings.py
+
+# Docker override (선택)
+**/docker-compose.override.yml
