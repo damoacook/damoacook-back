@@ -1,3 +1,4 @@
+from rest_framework import generics, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -54,3 +55,12 @@ class InquiryCreateView(APIView):
         # ──────────────
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+class AdminInquiryListView(generics.ListAPIView):
+    """
+    GET /api/inquiries/admin/
+    관리자 전용: 수강 문의 전체 조회
+    """
+    queryset = Inquiry.objects.order_by('-created_at')
+    serializer_class = InquirySerializer
+    permission_classes = [permissions.IsAdminUser]

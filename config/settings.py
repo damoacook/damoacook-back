@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
-from decouple import AutoConfig
+# from decouple import AutoConfig
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -35,6 +35,8 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 # 허용 호스트
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+
+AUTH_USER_MODEL = 'accounts.AdminUser'
 
 # 데이터베이스
 DATABASES = {
@@ -64,6 +66,7 @@ TWILIO_AUTH_TOKEN  = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER")
 TWILIO_ADMIN_NUMBER= os.getenv("TWILIO_ADMIN_NUMBER")
 
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -72,8 +75,22 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'apps.accounts',
     'apps.inquiries',
 ]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
