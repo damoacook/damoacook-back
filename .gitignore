@@ -4,13 +4,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# 가상환경
+# ─ 가상환경
 .venv/
+envs/
 damoa/
 
 # dotenv 환경변수 파일
 .env
-envs/
+.env.*
 
 # Django
 db.sqlite3

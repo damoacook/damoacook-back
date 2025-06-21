@@ -4,6 +4,9 @@ from rest_framework import status
 from .serializers import AdminLoginSerializer
 
 class AdminLoginView(APIView):
+    """
+    관리자 로그인: JWT 발급
+    """
     def post(self, request):
         serializer = AdminLoginSerializer(data=request.data)
         if serializer.is_valid():
