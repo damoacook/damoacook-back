@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.inquiries',
     'apps.lectures',
+    'apps.news',
 ]
 
 REST_FRAMEWORK = {
