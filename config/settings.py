@@ -30,6 +30,9 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # HRD API 키
 HRD_API_KEY = os.getenv("HRD_API_KEY")
 
+# 한국산업인력공단 API 키
+PUBLIC_API_KEY=os.getenv("PUBLIC_API_KEY")
+
 # 디버그 모드
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
@@ -80,6 +83,7 @@ INSTALLED_APPS = [
     'apps.inquiries',
     'apps.lectures',
     'apps.news',
+    'apps.certificates',
 ]
 
 REST_FRAMEWORK = {

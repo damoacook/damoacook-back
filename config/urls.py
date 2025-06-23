@@ -23,4 +23,5 @@ urlpatterns = [
     path('api/inquiries/', include('apps.inquiries.urls')),
     path("api/lectures/", include("apps.lectures.urls")),
     path('api/news/', include('apps.news.urls')),
+    path('api/certificates/', include('apps.certificates.urls')),
 ]
