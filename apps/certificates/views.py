@@ -1,56 +1,57 @@
-import requests
-from django.conf import settings
-from rest_framework import generics, status
+# certificates/views.py
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from utils.permissions import IsAdminOrReadOnly
-from utils.pagination import CustomPageNumberPagination
-from .models import Certificate
-from .serializers import CertificateSerializer
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from datetime import datetime
 
-class CertificateListCreateView(generics.ListCreateAPIView):
-    queryset = Certificate.objects.all()
-    serializer_class = CertificateSerializer
-    permission_classes = [IsAdminOrReadOnly]
-    pagination_class = CustomPageNumberPagination
+from .models import Certificate, CertificateExamPlan
+from .serializers import CertificateExamPlanSerializer
+from utils.qnet import fetch_exam_plans_from_qnet  # 공공데이터 요청 함수
 
-class CertificateRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Certificate.objects.all()
-    serializer_class = CertificateSerializer
-    lookup_field = 'id'
-    permission_classes = [IsAdminOrReadOnly]
-
-class ExamScheduleListView(APIView):
+class CertificateExamPlanSyncView(APIView):
     """
-    GET /api/certificates/schedules/?implYy=2025&jmCd=7910&qualgbCd=T
+    Q-Net 공공데이터 API를 통해 시험일정을 자동 저장하는 API
+    GET /api/certificates/<slug>/sync-exam-plans/?year=2025
     """
-    def get(self, request):
-        implYy   = request.query_params.get('implYy')
-        jmCd     = request.query_params.get('jmCd')
-        qualgbCd = request.query_params.get('qualgbCd', 'T')
 
-        if not implYy or not jmCd:
-            return Response(
-                {"error": "implYy(시행년도)와 jmCd(종목코드)를 모두 전달해주세요."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    def get(self, request, slug):
+        try:
+            year = int(request.query_params.get('year', datetime.now().year))
+        except ValueError:
+            return Response({"error": "올바른 연도를 입력해주세요."}, status=status.HTTP_400_BAD_REQUEST)
 
-        params = {
-            "serviceKey": settings.PUBLIC_API_KEY,
-            "numOfRows": 100,
-            "pageNo": 1,
-            "dataFormat": "json",
-            "implYy": implYy,
-            "qualgbCd": qualgbCd,
-            "jmCd": jmCd,
-        }
-        resp = requests.get(
-            "http://apis.data.go.kr/B490007/qualExamSchd/getQualExamSchdList",
-            params=params
+        certificate = get_object_or_404(Certificate, slug=slug)
+
+        try:
+            save_exam_plans(slug, year)
+            return Response({"message": f"{year}년도 시험일정이 성공적으로 저장되었습니다."})
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)
+
+def save_exam_plans(slug, year):
+    cert = Certificate.objects.get(slug=slug)
+    items = fetch_exam_plans_from_qnet(cert.jmcd, year)
+
+    for item in items:
+        CertificateExamPlan.objects.update_or_create(
+            certificate=cert,
+            impl_yy=int(item['implYy']),
+            impl_seq=int(item['implSeq']),
+            defaults={
+                'qualgb_cd': item['qualgbCd'],
+                'qualgb_nm': item['qualgbNm'],
+                'description': item.get('description', ''),
+                'doc_reg_start_dt': item['docRegStartDt'],
+                'doc_reg_end_dt': item['docRegEndDt'],
+                'doc_exam_start_dt': item['docExamStartDt'],
+                'doc_exam_end_dt': item['docExamEndDt'],
+                'doc_pass_dt': item['docPassDt'],
+                'prac_reg_start_dt': item['pracRegStartDt'],
+                'prac_reg_end_dt': item['pracRegEndDt'],
+                'prac_exam_start_dt': item['pracExamStartDt'],
+                'prac_exam_end_dt': item['pracExamEndDt'],
+                'prac_pass_dt': item['pracPassDt'],
+            }
         )
-        if resp.status_code != 200:
-            return Response({"error": "외부 API 호출 실패"}, status=status.HTTP_502_BAD_GATEWAY)
-
-        body = resp.json().get('response', {}).get('body', {})
-        items = body.get('items', {}).get('item', [])
-        return Response(items, status=status.HTTP_200_OK)
