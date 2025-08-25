@@ -14,9 +14,31 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from django.http import JsonResponse
+
+
+def healthz(_):
+    return JsonResponse({"ok": True})
+
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
+    path("api/admin/", include("apps.accounts.urls")),
+    path("api/about/", include("apps.about.urls")),
+    path("api/inquiries/", include("apps.inquiries.urls")),
+    path("api/lectures/", include("apps.lectures.urls")),
+    path("api/news/", include("apps.news.urls")),
+    path("api/certificates/", include("apps.certificates.urls")),
+    path("api/gallery/", include("apps.gallery.urls")),
+    path("api/popup/", include("apps.popup.urls")),
+    path("healthz", healthz),
 ]
+
+# 개발 환경에서 media 파일 서빙
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
