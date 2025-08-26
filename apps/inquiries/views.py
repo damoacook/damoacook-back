@@ -1,11 +1,9 @@
-from typing import cast
+from typing import cast, Any
 from django.core.mail import EmailMessage
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics, permissions, status
-
-# from twilio.rest import Client
 
 from .models import Inquiry
 from .serializers import InquirySerializer
@@ -16,7 +14,7 @@ class InquiryCreateView(APIView):
         serializer = InquirySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        inquiry = cast(Inquiry, serializer.save())  # ✅ 타입 명시
+        inquiry = cast(Inquiry, serializer.save())
 
         subject = f"[수강문의] {inquiry.name} 님으로부터"
         body = (
@@ -32,47 +30,28 @@ class InquiryCreateView(APIView):
         ]
 
         reply_to = None
-        if hasattr(request.data, "get"):
-            sender_email = request.data.get("email")
-            if sender_email:
-                reply_to = [sender_email]
+        if isinstance(request.data, dict) and request.data.get("email"):
+            reply_to = [request.data["email"]]
 
-        EmailMessage(
-            subject=subject,
-            body=body,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=recipients,
-            reply_to=reply_to,
-        ).send(fail_silently=False)
+        email_sent = False
+        try:
+            EmailMessage(
+                subject=subject,
+                body=body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=recipients,
+                reply_to=reply_to,
+            ).send(fail_silently=False)
+            email_sent = True
+        except Exception:
+            pass
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-        # ──────────────────────
-
-        # ─── SMS 발송 ───
-        # client = Client(
-        #     settings.TWILIO_ACCOUNT_SID,
-        #     settings.TWILIO_AUTH_TOKEN
-        # )
-        # sms_body = (
-        #     f"[수강문의]\n"
-        #     f"이름: {inquiry.name}\n"
-        #     f"전화: {inquiry.phone}\n"
-        #     f"내용: {inquiry.message}"
-        # )
-        # client.messages.create(
-        #     body=sms_body,
-        #     from_=settings.TWILIO_FROM_NUMBER,
-        #     to=settings.TWILIO_ADMIN_NUMBER
-        # )
-        # ──────────────
+        payload: dict[str, Any] = dict(serializer.data)
+        payload["email_sent"] = email_sent
+        return Response(payload, status=status.HTTP_201_CREATED)
 
 
 class AdminInquiryListView(generics.ListAPIView):
-    """
-    GET /api/inquiries/admin/
-    관리자 전용: 수강 문의 전체 조회
-    """
-
     queryset = Inquiry.objects.order_by("-created_at")
     serializer_class = InquirySerializer
     permission_classes = [permissions.IsAdminUser]
