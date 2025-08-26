@@ -222,3 +222,26 @@ CSRF_TRUSTED_ORIGINS = _csv("CSRF_TRUSTED_ORIGINS") or [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+
+INSTALLED_APPS += ["storages"]
+
+# 미디어를 S3(NCP)로
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_S3_ENDPOINT_URL = os.getenv(
+    "AWS_S3_ENDPOINT_URL"
+)  # https://kr.object.ncloudstorage.com
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")  # damoa-media
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", None)
+AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "virtual")
+AWS_S3_SIGNATURE_VERSION = os.getenv("AWS_S3_SIGNATURE_VERSION", "s3v4")
+
+# 업로드 파일은 퍼블릭 읽기 권한(버킷 정책으로 제어해도 됨)
+AWS_DEFAULT_ACL = "public-read"
+
+# 장고가 미디어 URL을 절대경로로 쓰게
+MEDIA_URL = os.getenv(
+    "MEDIA_URL", f"https://{AWS_STORAGE_BUCKET_NAME}.kr.object.ncloudstorage.com/"
+)
