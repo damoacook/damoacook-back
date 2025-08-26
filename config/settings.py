@@ -1,4 +1,5 @@
 import os
+from os import getenv
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -190,3 +191,34 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+
+
+def _csv(name):  # 콤마로 입력한 env를 리스트로
+    return [v.strip() for v in getenv(name, "").split(",") if v.strip()]
+
+
+CORS_ALLOW_ALL_ORIGINS = False
+
+# 고정 도메인(프로덕션/로컬)
+CORS_ALLOWED_ORIGINS = _csv("CORS_ALLOWED_ORIGINS") or [
+    "https://damoacook.com",
+    "http://damoacook.com",
+    "https://www.damoacook.com",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+# 프리뷰(가변) 도메인은 정규식으로 한 방에 처리
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+
+# CSRF는 '스킴 포함한 오리진' 형식이 필요
+CSRF_TRUSTED_ORIGINS = _csv("CSRF_TRUSTED_ORIGINS") or [
+    "https://damoacook.com",
+    "http://damoacook.com",
+    "https://www.damoacook.com",
+    "https://*.vercel.app",  # 프리뷰 전부 허용
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
