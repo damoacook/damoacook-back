@@ -12,7 +12,9 @@ class AdminLoginSerializer(serializers.Serializer):
         user = authenticate(email=data["email"], password=data["password"])
 
         if user is None:
-            raise serializers.ValidationError("이메일 또는 비밀번호가 올바르지 않습니다.")
+            raise serializers.ValidationError(
+                "이메일 또는 비밀번호가 올바르지 않습니다."
+            )
         if not user.is_active:
             raise serializers.ValidationError("비활성화된 계정입니다.")
         if not user.is_staff:
@@ -23,5 +25,5 @@ class AdminLoginSerializer(serializers.Serializer):
             "refresh": str(refresh),
             "access": str(refresh.access_token),
             "email": user.email,
-            "id": user.id
+            "id": user.pk,
         }
