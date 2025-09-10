@@ -5,8 +5,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ─────────────────────────────────────────────────────────
-# 환경변수 로드: 로컬만 .env.* 사용, Render는 대시보드에서 주입
+# 환경변수 로드: 로컬만 .env.* 사용, Render는 대시보드에서 주입해야함
 env_local = BASE_DIR / "envs" / ".env.local"
 if env_local.exists():
     load_dotenv(env_local)
@@ -19,11 +18,10 @@ if os.getenv("DJANGO_ENV") == "production":
 ENV = os.getenv("DJANGO_ENV", "local")
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-# ─────────────────────────────────────────────────────────
-# 보안 키 (Render 환경변수로 꼭 주입)
+# 보안 키 (Render 환경변수로 꼭 주입해줘야함)
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret")
 
-# 호스트/오리진 (배포 시 환경변수로 넣어줘)
+# 호스트/오리진 (배포 시 환경변수로 넣어주기)
 ALLOWED_HOSTS = [h for h in os.getenv("ALLOWED_HOSTS", "").split(",") if h]
 if DEBUG and not ALLOWED_HOSTS:
     # 로컬 편의
@@ -55,8 +53,7 @@ PUBLIC_API_KEY = os.getenv("PUBLIC_API_KEY")
 QNET_API_KEY = os.getenv("QNET_API_KEY")
 
 # ─────────────────────────────────────────────────────────
-# Database (Neon 사용 시 DATABASE_URL 추천)
-# 예: postgresql://USER:PASS@HOST/DB?sslmode=require
+# Database (Neon 사용 시 DATABASE_URL 추천하기도..?)
 import dj_database_url
 
 _default_url = None
@@ -64,7 +61,7 @@ if all(
     os.getenv(k)
     for k in ["DB_ENGINE", "DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME"]
 ):
-    db_engine_raw = os.getenv("DB_ENGINE", "")  # ← 기본값을 ""로
+    db_engine_raw = os.getenv("DB_ENGINE", "")
     engine = db_engine_raw.replace("django.db.backends.", "", 1)
     _default_url = (
         f"{engine}://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
@@ -82,7 +79,7 @@ DATABASES = {
 }
 
 # ─────────────────────────────────────────────────────────
-# Email (Naver: 발신주소는 EMAIL_HOST_USER와 일치해야 함)
+# Email (Naver: 발신주소는 EMAIL_HOST_USER와 일치해야함)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.naver.com")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
@@ -112,6 +109,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
+    "drf_spectacular",
+    "drf_spectacular_sidecar",
     "apps.accounts",
     "apps.about",
     "apps.inquiries",
@@ -126,20 +125,29 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "inquiries": "5/min",  # 수강문의: IP 기준 분당 5회
+        "anon": "60/min",  # 전체 익명 요청 기본치
+    },
 }
 
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=2),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
-# ─────────────────────────────────────────────────────────
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    # WhiteNoise: 정적파일 서빙(렌더에서 Nginx 없이)
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -168,14 +176,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# ─────────────────────────────────────────────────────────
-# 국제화
 LANGUAGE_CODE = "ko-kr"
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
 
-# ─────────────────────────────────────────────────────────
 # Static / Media
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -184,16 +189,14 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-# ⚠️ Render는 컨테이너 파일시스템이 휘발성이라 업로드 파일은 S3 같은 외부 스토리지로 옮기는 걸 권장
 
-# ─────────────────────────────────────────────────────────
-# 보안 (리버스 프록시 HTTPS 인지)
+# 보안 (리버스 프록시 HTTPS)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
 
-def _csv(name):  # 콤마로 입력한 env를 리스트로
+def _csv(name):  # 콤마로 입력한 env를 리스트
     return [v.strip() for v in getenv(name, "").split(",") if v.strip()]
 
 
@@ -208,12 +211,12 @@ CORS_ALLOWED_ORIGINS = _csv("CORS_ALLOWED_ORIGINS") or [
     "http://127.0.0.1:5173",
 ]
 
-# 프리뷰(가변) 도메인은 정규식으로 한 방에 처리
+# 프리뷰(가변) 도메인은 정규식으로 처리
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.vercel\.app$",
 ]
 
-# CSRF는 '스킴 포함한 오리진' 형식이 필요
+# CSRF는 스킴 포함한 오리진 형식이 필요
 CSRF_TRUSTED_ORIGINS = _csv("CSRF_TRUSTED_ORIGINS") or [
     "https://damoacook.com",
     "http://damoacook.com",
@@ -248,3 +251,28 @@ AWS_QUERYSTRING_AUTH = False  # 깔끔한 공개 URL 선호 시
 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.kr.object.ncloudstorage.com"
 MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Damoa Cook Academy API",
+    "DESCRIPTION": "다모아요리학원 공개/관리자 API 문서",
+    "VERSION": "1.0.0",
+    # Swagger/Redoc 정적 리소스: sidecar 사용
+    "SWAGGER_UI_DIST": "SIDECAR",
+    "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
+    "REDOC_DIST": "SIDECAR",
+    # SimpleJWT 토큰 쓰는 경우 보안 스키마
+    "COMPONENTS": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
+    # 기본적으로 모든 엔드포인트에 BearerAuth 적용 (원치 않으면 제거 가능)
+    "SECURITY": [{"BearerAuth": []}],
+    # 스키마 자체(JSON)를 /api/docs 화면에 포함하지 않음(링크만)
+    "SERVE_INCLUDE_SCHEMA": False,
+}

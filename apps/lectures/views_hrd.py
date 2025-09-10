@@ -1,11 +1,9 @@
-import os
-import requests
-import xmltodict
+import os, requests, xmltodict, time
 from datetime import datetime
+from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-
 from utils.pagination import CustomPageNumberPagination
 
 HRD_API_KEY = os.getenv("HRD_API_KEY")
@@ -14,6 +12,9 @@ HRD_TORG_ID = os.getenv("HRD_TORG_ID")
 
 class HRDLectureListView(APIView):
     """고용24 연동 강의 목록 조회 (다모아요리학원 전용)"""
+
+    CACHE_KEY = "hrd:list:2025:damoa"
+    CACHE_TTL = 600  # 10분
 
     def get(self, request):
         API_URL = (
@@ -32,11 +33,24 @@ class HRDLectureListView(APIView):
             "sort": "DESC",
             "sortCol": 2,
         }
+
+        t0 = time.perf_counter()
+        cached = cache.get(self.CACHE_KEY)
+
         try:
-            resp = requests.get(API_URL, params=params, timeout=10)
+            resp = requests.get(API_URL, params=params, timeout=3)
             resp.raise_for_status()
             data = xmltodict.parse(resp.text)
+            items = data.get("HRDNet", {}).get("srchList", {}).get("scn_list", [])
+            if isinstance(items, dict):
+                items = [items]
         except Exception as e:
+            # 네트워크/파싱 실패 → 스냅샷 폴백
+            if cached:
+                resp = Response(cached, status=status.HTTP_200_OK)
+                resp["X-Cache"] = "HIT-FALLBACK"
+                resp["X-Elapsed-ms"] = f"{(time.perf_counter()-t0)*1000:.1f}"
+                return resp
             return Response(
                 {"error": f"목록 조회 실패: {e}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -76,7 +90,7 @@ class HRDLectureListView(APIView):
                 else (f"D-{(start - today).days}" if start > today else "D-DAY")
             )
 
-            # ✅ torg_id 멀티키 추출(누락 방지)
+            # torg_id 멀티키 추출(누락 방지)
             torg_id = (
                 item.get("trainstCstmrId")
                 or item.get("trainstCstmrID")
@@ -93,7 +107,7 @@ class HRDLectureListView(APIView):
                     "title": item.get("title"),
                     "process_id": item.get("trprId"),
                     "process_time": item.get("trprDegr"),
-                    "torg_id": torg_id,  # ✅ 반드시 포함
+                    "torg_id": torg_id,
                     "crse_tracse_se": item.get("trainTargetCd"),
                     "start_date": item.get("traStartDate"),
                     "end_date": item.get("traEndDate"),
@@ -112,13 +126,21 @@ class HRDLectureListView(APIView):
 
         paginator = CustomPageNumberPagination()
         page = paginator.paginate_queryset(lectures, request)
-        return paginator.get_paginated_response(page)
+        response = paginator.get_paginated_response(page)
+
+        # ▲ 성공 시 스냅샷 저장
+        cache.set(self.CACHE_KEY, response.data, self.CACHE_TTL)
+        response["X-Cache"] = "MISS" if not cached else "REFRESH"
+        response["X-Elapsed-ms"] = f"{(time.perf_counter()-t0)*1000:.1f}"
+        return response
 
 
 class HRDLectureDetailView(APIView):
     """고용24 연동 강의 상세 조회
     - torg_id 없으면 310L01로 '기관ID' 역조회 후 310L03 호출
     """
+
+    CACHE_TTL = 1800
 
     def _lookup_torg_id(self, trpr_id: str, tracse: str) -> str | None:
         """310L01 목록에서 trprId + trprDegr 로 기관ID(trainstCstmrId) 찾기 (여러 페이지 탐색)"""
@@ -172,13 +194,22 @@ class HRDLectureDetailView(APIView):
         tracse = request.query_params.get("tracse_tme")
         torg = request.query_params.get("torg_id")
 
+        cache_key = f"hrd:detail:{trpr_id}:{tracse}:{torg}"
+        t0 = time.perf_counter()
+        hit = cache.get(cache_key)
+        if hit:
+            resp = Response(hit, status=200)
+            resp["X-Cache"] = "HIT"
+            resp["X-Elapsed-ms"] = f"{(time.perf_counter()-t0)*1000:.1f}"
+            return resp
+
         if not tracse:
             return Response(
                 {"error": "`tracse_tme`(회차)가 필요합니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ 쿼리에 torg_id가 없으면 고정값으로 대입
+        # 쿼리에 torg_id가 없으면 고정값으로 대입
         if not torg:
             torg = HRD_TORG_ID
 
