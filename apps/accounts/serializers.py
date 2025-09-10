@@ -1,3 +1,4 @@
+from typing import cast
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -10,7 +11,6 @@ class AdminLoginSerializer(serializers.Serializer):
 
     def validate(self, data):
         user = authenticate(email=data["email"], password=data["password"])
-
         if user is None:
             raise serializers.ValidationError(
                 "이메일 또는 비밀번호가 올바르지 않습니다."
@@ -20,7 +20,7 @@ class AdminLoginSerializer(serializers.Serializer):
         if not user.is_staff:
             raise serializers.ValidationError("관리자 권한이 없습니다.")
 
-        refresh = RefreshToken.for_user(user)
+        refresh = cast(RefreshToken, RefreshToken.for_user(user))
         return {
             "refresh": str(refresh),
             "access": str(refresh.access_token),
