@@ -105,7 +105,7 @@ python manage.py runserver 0.0.0.0:8000
 
 4.  운영/배포 아키텍처
 
-![Damoa Architecture](assets/damoacook.png)
+![Damoa Architecture](assets/damoacook(1).png)
 
 - 단일 도메인 + 경로 라우팅: https://damoacook.com/api/*
 - 장점: SEO/쿠키/CSRF/추적 스니펫 관리 단순, CORS 이슈 최소화
