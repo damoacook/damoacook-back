@@ -7,14 +7,8 @@
 
 <p align="center">
   <a href="https://damoacook.com">🔗 웹사이트</a> &nbsp;•&nbsp;
-  <a href="https://damoacook.com/api/">🧩 API Base</a>
 </p>
 
-<p align="center">
-  <a href="https://hits.seeyoufarm.com">
-    <img src="https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fdamoacook&count_bg=%2379C83D&title_bg=%23555555&title=org%20visits&edge_flat=false" alt="org visits"/>
-  </a>
-</p>
 
 ---
 
@@ -111,40 +105,7 @@ python manage.py runserver 0.0.0.0:8000
 
 4.  운영/배포 아키텍처
 
-```mermaid
-
-flowchart LR
-  subgraph Client["사용자 브라우저"]
-    U[사용자]
-  end
-
-  subgraph FE["Vercel (Frontend: React · Vite)"]
-    S["정적 파일<br/>(HTML · CSS · JS)"]
-    Rw["Rewrite: /api/* -> Backend"]
-  end
-
-  subgraph BE["Render (Django/DRF + Gunicorn)"]
-    App[Django App]
-    Docs[Swagger / Redoc]
-    Health["GET /healthz"]
-  end
-
-  DB[(PostgreSQL)]
-  S3[(Naver Object Storage)]
-  SMTP[(Naver SMTP)]
-  HRD[(HRD-Net OpenAPI)]
-
-  U -->|HTTPS| S
-  S -->|XHR /api/*| Rw
-  Rw --> App
-
-  App -->|ORM| DB
-  App -->|django-storages| S3
-  App -->|SMTP| SMTP
-  App -->|HTTP| HRD
-  App -.-> Docs
-  App -.-> Health
-```
+![Damoa Architecture](assets/damoacook.png)
 
 - 단일 도메인 + 경로 라우팅: https://damoacook.com/api/*
 - 장점: SEO/쿠키/CSRF/추적 스니펫 관리 단순, CORS 이슈 최소화
