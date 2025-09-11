@@ -114,12 +114,36 @@ python manage.py runserver 0.0.0.0:8000
 ```mermaid
 
 flowchart LR
-  User -->|HTTPS| Vercel[Frontend]
-  Vercel -->|/api rewrite| Render[Backend: Gunicorn]
-  Render -->|ORM| PostgreSQL[(DB)]
-  Render -->|SMTP| NaverMail[(Naver SMTP)]
-  Render -->|Media| NaverObjectStorage[(S3)]
-  Render -->|OpenAPI| HRDNet[HRD-Net]
+  subgraph Client["사용자 브라우저"]
+    U[사용자]
+  end
+
+  subgraph FE["Vercel (Frontend: React · Vite)"]
+    S["정적 파일<br/>(HTML · CSS · JS)"]
+    Rw["Rewrite: /api/* -> Backend"]
+  end
+
+  subgraph BE["Render (Django/DRF + Gunicorn)"]
+    App[Django App]
+    Docs[Swagger / Redoc]
+    Health["GET /healthz"]
+  end
+
+  DB[(PostgreSQL)]
+  S3[(Naver Object Storage)]
+  SMTP[(Naver SMTP)]
+  HRD[(HRD-Net OpenAPI)]
+
+  U -->|HTTPS| S
+  S -->|XHR /api/*| Rw
+  Rw --> App
+
+  App -->|ORM| DB
+  App -->|django-storages| S3
+  App -->|SMTP| SMTP
+  App -->|HTTP| HRD
+  App -.-> Docs
+  App -.-> Health
 ```
 
 - 단일 도메인 + 경로 라우팅: https://damoacook.com/api/*
@@ -193,5 +217,7 @@ flowchart LR
 - **검증**
   - 프리뷰 URL에서 프리플라이트 응답 헤더(`Access-Control-*`) 정상 여부 확인.
   - 실제 폼 제출/파일 업로드까지 교차 테스트로 정상 동작 확인.
+
+
 
 
