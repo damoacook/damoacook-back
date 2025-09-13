@@ -2,7 +2,7 @@
 # 다모아요리학원 (Damoa Cook Academy)
 
 <p align="center">
-  <img src="./assets/로고.jpg" alt="Damoa Cook Academy Logo" width="300" />
+  <img src="./assets/다모아로고.jpg" alt="Damoa Cook Academy Logo" width="300" />
 </p>
 
 <p align="center">
