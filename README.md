@@ -1,14 +1,19 @@
 # 다모아요리학원 Backend (Django + DRF)
 
-![Damoa Cook Academy Logo](./assets/다모아아로고.jpg)
+![Damoa Cook Academy Logo](./assets/다모아로고.jpg)
 
-[![Website](https://img.shields.io/badge/website-live-2ea44f)](https://damoacook.com)
-![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB)
-![Django](https://img.shields.io/badge/Django-5.x-092E20)
-![DRF](https://img.shields.io/badge/DRF-REST_API-bd2c00)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-14%2B-336791)
-![Docs](https://img.shields.io/badge/Swagger%2FRedoc-OpenAPI3-009485)
-![Deploy](https://img.shields.io/badge/Render-Gunicorn-46E3B7)
+[![Website](https://img.shields.io/badge/WEBSITE-LIVE-2ea44f?style=for-the-badge&logo=googlechrome&logoColor=white)](https://damoacook.com)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=white)
+![DRF](https://img.shields.io/badge/DRF-E23F3D?style=for-the-badge&logo=django&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-6BA539?style=for-the-badge&logo=openapiinitiative&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger-85EA2D?style=for-the-badge&logo=swagger&logoColor=white)
+![Render](https://img.shields.io/badge/Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)
+![Gunicorn](https://img.shields.io/badge/Gunicorn-499848?style=for-the-badge&logo=gunicorn&logoColor=white)
+![WhiteNoise](https://img.shields.io/badge/WhiteNoise-4B5563?style=for-the-badge)
+![SimpleJWT](https://img.shields.io/badge/SimpleJWT-000000?style=for-the-badge)
+![Object Storage (S3)](https://img.shields.io/badge/Object%20Storage%20(S3)-03C75A?style=for-the-badge&logo=naver&logoColor=white)
 
 > 다모아요리학원 **백엔드**는 Django + DRF 기반의 REST API입니다.  
 > 강의·공지·갤러리·수강문의 도메인과 **HRD-Net(Work24) 연동**, **SMTP 알림**, **S3 미디어 저장**을 제공합니다.
@@ -16,20 +21,19 @@
 ---
 
 ## 목차
-- [프로젝트 개요 & 선정 이유](#프로젝트-개요--선정-이유)
+- [프로젝트 개요](#프로젝트-개요)
 - [개발 인원/기간](#개발-인원기간)
 - [배포 & 아키텍처](#배포--아키텍처)
 - [기술 스택](#기술-스택)
 - [설치 & 실행(로컬)](#설치--실행로컬)
 - [API 요약](#api-요약)
-- [트러블슈팅](#트러블슈팅)
-- [측정 재현 방법](#측정-재현-방법)
+- [트러블슈팅 & 성능개선](#트러블슈팅--성능개선)
 - [운영/보안 체크리스트](#운영보안-체크리스트)
 - [라이선스](#라이선스)
 
 ---
 
-## 프로젝트 개요 & 선정 이유
+## 프로젝트 개요
 - **목표**: 학원 소개/강의/자격증/공지·갤러리/수강문의를 **단일 도메인**에서 안정적으로 제공
 - **선정 이유(백엔드 관점)**
   - **Django + DRF**: 모델·시리얼라이저·권한/페이지네이션 표준화 → 운영 효율↑, 유지보수 비용↓
@@ -42,7 +46,7 @@
 
 ## 개발 인원/기간
 - **개발**: 1인(백엔드 중심, FE/인프라 포함)  
-- **기간**: 2025.06 ~ 2025.09
+- **기간**: 2025.07 ~ 2025.09
 
 ---
 
@@ -54,7 +58,6 @@
 - **FE/BE 분리 배포**: 정적은 Vercel(에지 캐시), 동적은 Render(Gunicorn) → 장애/배포 영향 범위 분리
 - **S3 호환 스토리지**: 미디어 영속화
 - **외부 연동**: HRD-Net(Work24 OpenAPI), Naver SMTP
-- **헬스체크**: `GET /healthz` (가벼운 OK 응답)
 
 ---
 
@@ -96,127 +99,238 @@ python manage.py runserver 0.0.0.0:8000
 ```
 
 ## API 요약
+> 공개 API는 인증 없이 접근, **관리자용 엔드포인트는 JWT 필요**  
+> 로컬: http://localhost:8000/api/docs/
 
-### 공개 API는 인증 없이 접근, 운영자용 엔드포인트는 JWT 필요.
+---
 
-### 1) 강의(내부·학원)
+### 1) 수강문의 (무로그인)
+`POST /api/inquiries/`  
+요청(모델 기준):
+```json
+{
+  "name": "홍길동",        // 최대 100자
+  "phone": "010-1234-5678", // 최대 20자
+  "message": "한식 기능사 과정 문의합니다."
+}
 
-```
-GET /api/lectures/?status=active&page=1&page_size=12
-응답(요약):
+성공(201):
 
 {
+  "id": 5301,
+  "name": "홍길동",
+  "phone": "010-1234-5678",
+  "message": "한식 기능사 과정 문의합니다.",
+  "created_at": "2025-09-01T10:11:12+09:00"
+}
+
+
+유효성 오류(예):
+
+{
+  "phone": ["이 필드는 최대 20자 이하이어야 합니다."]
+}
+```
+
+2) 강의 (내부 DB)
+
+GET /api/lectures/?page=1&page_size=12
+응답(요약):
+```json
+{
   "count": 42,
-  "next": "...",
+  "next": "https://damoacook.com/api/lectures/?page=2&page_size=12",
   "previous": null,
   "results": [
     {
       "id": 101,
+      "type": "academy",           // "academy" | "hrd"
       "title": "한식 기능사 실기",
-      "status": "active",
+      "description": "과정 설명...",
+      "image": "https://.../media/lectures/xxx.jpg",  // ImageField URL
+      "tags": "한식,실기",
+      "day_of_week": "월/수/금",
+      "time": "14:00~16:00",
       "start_date": "2025-09-15",
-      "thumbnail": "https://.../thumb.jpg"
+      "end_date": "2025-10-30",
+      "capacity": 20,
+      "applied": 7,
+      "created_at": "2025-08-20T12:00:00+09:00"
     }
   ]
 }
-
+```
 
 GET /api/lectures/{id}/
-응답(요약):
-
+응답(예):
+```json
 {
   "id": 101,
+  "type": "academy",
   "title": "한식 기능사 실기",
-  "description": "...",
-  "curriculum": ["만두소 다듬기", "완자전"],
-  "status": "active",
-  "images": ["https://.../1.jpg","https://.../2.jpg"]
+  "description": "과정 설명...",
+  "image": "https://.../media/lectures/xxx.jpg",
+  "tags": "한식,실기",
+  "day_of_week": "월/수/금",
+  "time": "14:00~16:00",
+  "start_date": "2025-09-15",
+  "end_date": "2025-10-30",
+  "capacity": 20,
+  "applied": 7,
+  "created_at": "2025-08-20T12:00:00+09:00"
 }
 ```
 
-### 2) HRD-Net 강의(연동)
-```
+
+3) HRD-Net 강의(연동)
+
 GET /api/hrd-lectures/?q=한식&region=서울&page=1
-외부 데이터(HRD-Net) 연동 결과를 페이지네이션하여 제공
 
-3) 공지/갤러리
+HRD-Net 외부 데이터 연동 결과를 페이지네이션하여 제공
 
-GET /api/news/ · GET /api/news/{id}/
-
-GET /api/gallery/ · GET /api/gallery/{id}/
+응답 필드는 연동 스키마에 맞춰 다를 수 있습니다(예: 과정명, 기관명, 지역, 접수/개강일, 상세링크 등).
+```json
+{
+  "count": 120,
+  "next": "...",
+  "previous": null,
+  "results": [
+    {
+      "id": "HRD-24-0001",
+      "title": "한식 조리기능사 취득과정",
+      "provider": "○○직업학교",
+      "region": "서울",
+      "start_date": "2025-09-10",
+      "link": "https://www.hrd.go.kr/..."
+    }
+  ]
+}
 ```
-### 4) 수강문의(무로그인)
+4) 공지/갤러리
+
+GET /api/news/ / GET /api/news/{id}/
+
+GET /api/gallery/ / GET /api/gallery/{id}/
+
+목록 응답(요약):
+```json
+{
+  "count": 10,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 301,
+      "title": "9월 모집 안내",
+      "thumbnail": "https://.../thumb.jpg",
+      "created_at": "2025-08-31T20:00:00+09:00"
+    }
+  ]
+}
 ```
-POST /api/inquiries/
-요청:
 
-{ "name":"홍길동", "phone":"010-1234-5678", "message":"한식 기능사 과정 문의합니다." }
-
+상세 응답(예):
+```json
+{
+  "id": 301,
+  "title": "9월 모집 안내",
+  "content": "<p>상세 공지 본문...</p>",
+  "images": ["https://.../1.jpg", "https://.../2.jpg"],
+  "created_at": "2025-08-31T20:00:00+09:00"
+}
 ```
 
-## 트러블슈팅
-### 1) 201인데 수강문의 메일 미수신
-- 증상: POST /api/inquiries/ 201(저장 성공)이나 메일이 오지 않음
-- 원인:
-Naver SMTP 정책: From ≠ 로그인 계정 시 차단
-DEFAULT_FROM_EMAIL 따옴표 포함 등 헤더 포맷 오류
-TLS/포트 불일치, 애플리케이션에서 오류가 묵살되던 점
-- 조치:
-EMAIL_USE_TLS=True, EMAIL_PORT=587, From = EMAIL_HOST_USER 일치
-DEFAULT_FROM_EMAIL을 다모아요리학원 <id@naver.com> 형태로 교정
-수신자 INQUIRY_TO_EMAILS(복수) 구성, 개발은 콘솔 메일 백엔드로 검증
-- 결과: 동일 테스트 데이터로 실제 SMTP 수신 확인(201 응답 ↔ 수신 이벤트 일치)
+## 트러블슈팅 & 성능개선
+### 1) 201인데 수강문의 메일이 오지 않음
 
-### 2) Vercel 프리뷰에서 CORS/CSRF 프리플라이트 실패
+- **증상**  
+  `POST /api/inquiries/`가 201(저장 성공)을 반환하지만, 실제 수신 메일이 없음.
 
-- 증상: 프리뷰 URL에서 OPTIONS 403 → 후속 GET/POST 차단
-- 원인: CORS 허용 목록/정규식, CSRF Trusted Origins에 프리뷰 도메인 누락
-- 조치:
-CORS_ALLOWED_ORIGIN_REGEXES에 ^https://.*\.vercel\.app$ 추가
-CSRF_TRUSTED_ORIGINS에 운영/프리뷰 도메인 와일드카드 반영
-SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_PROTO","https") 확인
-- 결과: 프리뷰 배포에서도 폼 제출/업로드 정상
+- **원인 분석**  
+  - Naver SMTP 정책상 **From 주소 ≠ 로그인 계정(EMAIL_HOST_USER)** 인 경우 차단 가능.  
+  - `DEFAULT_FROM_EMAIL`에 큰따옴표 등 **헤더 포맷 오류**가 섞여 SMTP 단계에서 Drop.  
+  - TLS/포트 설정 불일치 + 애플리케이션에서 예외를 묵살(기본 `fail_silently=True` 관성).
 
-### 3) HRD-Net 목록 호출 콜드 스타트 지연(외부 API)
+- **조치**  
+  - 운영 환경변수 교정: `EMAIL_USE_TLS=True`, `EMAIL_PORT=587`, **From = EMAIL_HOST_USER 동일화**.  
+  - `DEFAULT_FROM_EMAIL`을 `다모아요리학원 <id@naver.com>` 형태로 규격화(큰따옴표 제거).  
+  - 수신자 다중화: `INQUIRY_TO_EMAILS`로 운영/관리자 복수 수신 구성.  
+  - 개발·검증 단계는 **콘솔 메일 백엔드**로 교체하여 헤더/본문 즉시 확인.  
 
-- 증상: 최초 호출(네트워크/파싱 지연) 2초대 스파이크 발생
-- 대응: 메모리 캐시 + 스냅샷 폴백(캐시 TTL: 목록 10분 / 상세 30분)
-- 결과: 콜드 스타트 최악값 2.18s → 0.14s, 평균 132ms → 65ms (≈ -51%)
+- **결과**  
+  동일 테스트 데이터로 201 응답 ↔ 실제 수신 이벤트 **일치** 확인.  
+  (SMTP 측 Bounce/Drop 재발 없음)
 
-#### 성능 개선(요약)
-구간	Avg (ms)	P50 (ms)	Max (ms)
-최적화 전	132.4	56.4	2184.3
-최적화 후	64.7	55.7	142.9
+---
 
-평균 응답 ≈ 51% 단축 (132.4 → 64.7)
+### 2) HRD-Net(Work24) 목록 호출 콜드 스타트 지연
 
-최악 응답(콜드 스타트) ≈ 93% 단축 (2184.3 → 142.9)
+- **증상**  
+  외부 API 최초 호출 시 네트워크/파싱 지연으로 **2초대 스파이크** 발생.
 
-동일 머신/로컬 네트워크에서 연속 30회 호출 평균값으로 산출(외부망/시간대에 따라 변동 가능)
+- **조치**  
+  - 목록: **메모리 캐시 + 스냅샷 폴백**(TTL **10분**)  
+  - 상세: **메모리 캐시**(TTL **30분**)  
+  - 헤더로 계측값 노출: `X-Elapsed-ms`/`X-Cache`(MISS/REFRESH/HIT-FALLBACK)
 
-## 측정 재현 방법
-Windows (PowerShell)
-### 30회 반복 측정(총 소요 ms)
-1..30 | ForEach-Object {
-  $t = Measure-Command { curl.exe -s http://localhost:8000/api/hrd-lectures/ > $null }
-  [PSCustomObject]@{ idx = $_; total_ms = [math]::Round($t.TotalMilliseconds,1) }
-} | Format-Table -Auto
+- **측정 결과(로컬 30회 연속 호출)**
 
-### 간단 요약 통계
-1..30 | %{
-  (Measure-Command { curl.exe -s http://localhost:8000/api/hrd-lectures/ > $null }).TotalMilliseconds
-} | Measure-Object -Average -Maximum -Minimum
+  | 구간         | Avg(ms) | P50(ms) | Max(ms)  |
+  |--------------|---------|---------|----------|
+  | 최적화 전    | 132.4   | 56.4    | 2184.3   |
+  | 최적화 후    | 64.7    | 55.7    | 142.9    |
 
-macOS/Linux (bash)
-for i in $(seq 1 30); do
-  curl -s -o /dev/null -w "total=%{time_total}\n" http://localhost:8000/api/hrd-lectures/
-done | awk -F= '{sum+=$2*1000; if($2*1000>max)max=$2*1000} END{printf "avg=%.1fms, max=%.1fms\n",sum/NR,max}'
+  - **평균 응답**: 132.4 → 64.7ms (**약 51% 단축**)  
+  - **최악 응답(콜드 스타트)**: 2184.3 → 142.9ms (**약 93% 단축**)  
+  - 동일 머신/로컬 네트워크 기준. 외부망/시간대에 따라 수치는 변동 가능.
+
+---
+
+### 3) Vercel 프리뷰에서 CORS/CSRF 프리플라이트 실패
+
+- **증상**  
+  프리뷰 URL에서 `OPTIONS`(preflight) 403, 후속 `GET/POST`도 차단.
+
+- **원인 분석**  
+  - 프리뷰 오리진이 **CORS 허용 목록/정규식**에 포함되지 않음.  
+  - `CSRF_TRUSTED_ORIGINS`에 프리뷰 도메인 누락.  
+  - 프록시 HTTPS 인지 미설정 시 CSRF 판단이 오작동할 여지.
+
+- **조치**  
+  - `CORS_ALLOWED_ORIGIN_REGEXES`에 `^https://.*\.vercel\.app$` 추가.  
+  - `CSRF_TRUSTED_ORIGINS`에 운영 도메인 + 프리뷰 와일드카드 반영.  
+  - `SECURE_PROXY_SSL_HEADER=("HTTP_X_FORWARDED_PROTO","https")` 설정 확인.
+
+- **결과**  
+  프리뷰 배포에서도 **폼 제출/파일 업로드 정상**.
+
+---
+
+### 4) 수강문의 API 남용(스팸/폭주) 예방
+
+> 프러덕션 안정성을 위해 **서버 사이드**에서 1차 방어를 적용했고, 추가 방어는 단계적으로 확대 중입니다.
+
+- **위험 시나리오**  
+  자동화된 봇/스크립트가 `POST /api/inquiries/`를 대량 호출 → SMTP 큐 폭주/알림 테러 위험.
+
+- **적용(1차)**  
+  - **서버 검증 강제**: `name(max_length=100)`, `phone(max_length=20)`, `message(Text)` 길이 제한 및 필수값 체크.  
+  - **Payload 중복 차단**: 동일 `(name, phone, message)` 조합 **60초 내 재요청 차단**(디듀프).  
+  - **IP 기반 레이트 리미트**: **5회/10분** 초과 시 **429** 응답(캐시 기반).  
+  - **SMTP 경로 분리**: DB 저장과 메일 발송 경로를 분리하여, 발송 실패가 API 응답시간을 지연시키지 않도록 처리.
+
+- **추가 계획(2차)**  
+  - **reCAPTCHA/Turnstile** 도입(봇 트래픽 차단)  
+  - **전화번호 패턴/통신사 블랙리스트** 기반 정교화  
+  - **관리자 재발송 큐**(지연·실패 재시도, 폭주 시 유예 정책)
+
+
 
 ## 운영/보안 체크리스트
 
-비밀값(DB/SMTP/S3/API 키 등)은 환경변수로만 주입(레포 내 노출 금지)
-업로드 파일은 S3 저장, 정적은 WhiteNoise 해시 서빙
-관리자 API는 JWT로 보호, 토큰 만료/권한 점검
+- 비밀값(DB/SMTP/S3/API 키 등)은 환경변수로만 주입(레포 내 노출 금지)
+- 업로드 파일은 S3 저장, 정적은 WhiteNoise 해시 서빙
+- 관리자 API는 JWT로 보호, 토큰 만료/권한 점검
 
 ## 라이선스
-### 본 저장소는 UNLICENSED 상태이며, 학원 서비스 운영을 위한 목적으로만 사용합니다.
+- 본 저장소는 UNLICENSED 상태이며, 학원 서비스 운영을 위한 목적으로만 사용합니다.
