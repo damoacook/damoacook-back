@@ -1,0 +1,11 @@
+프로젝트 루트(예: C:\Users\82109\PycharmProjects\damoa-backend)에서 
+가상환경
+# 활성화 (켜기)
+.\damoa\Scripts\Activate.ps1
+
+# 비활성화 (끄기)
+deactivate
+
+# 앱생성
+mkdir apps\앱이름
+python manage.py startapp 앱이름 apps\앱이름
