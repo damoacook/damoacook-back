@@ -71,9 +71,9 @@ Backend (pip)
 
 ```bash
 
-cd backend
-python -m venv .venv && source .venv/bin/activate
-# (Windows) .\.venv\Scripts\Activate.ps1
+C:\Users\82109\PycharmProjects\damoa-backend
+source damoa/bin/activate
+# (Windows) .\damoa\Scripts\Activate.ps1
 pip install -r requirements.txt
 
 # 로컬 실행 (환경변수는 인프라에서 주입, 값은 README에 공개하지 않음)
