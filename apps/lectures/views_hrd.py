@@ -1,5 +1,5 @@
 import os, requests, xmltodict, time
-from datetime import datetime
+from datetime import date, datetime
 from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -13,39 +13,63 @@ HRD_TORG_ID = os.getenv("HRD_TORG_ID")
 class HRDLectureListView(APIView):
     """고용24 연동 강의 목록 조회 (다모아요리학원 전용)"""
 
-    CACHE_KEY = "hrd:list:2025:damoa"
     CACHE_TTL = 600  # 10분
 
     def get(self, request):
         API_URL = (
             "https://www.work24.go.kr/cm/openApi/call/hr/callOpenApiSvcInfo310L01.do"
         )
-        today = datetime.today().date()
+        # 기간(올해 ~ +2년)
+        today = date.today()
+        start_year = today.year
+        end_year = today.year + 2  # 필요에 따라 +1, +3로 조정
+        srchTraStDt = f"{start_year}0101"
+        srchTraEndDt = f"{end_year}1231"
+
+        # 쿼리 기본값
+        organ = request.query_params.get("org", "다모아요리학원")
+        page_num = int(request.query_params.get("page_num", 1))
+        page_size = int(request.query_params.get("page_size", 100))
+        sort = request.query_params.get("sort", "DESC")
+        sort_col = int(request.query_params.get("sortCol", 2))
+
         params = {
             "authKey": HRD_API_KEY,
             "returnType": "XML",
             "outType": "2",
-            "pageNum": 1,
-            "pageSize": 100,
-            "srchTraStDt": "20250101",
-            "srchTraEndDt": "20251231",
-            "srchTraOrganNm": "다모아요리학원",
-            "sort": "DESC",
-            "sortCol": 2,
+            "pageNum": page_num,
+            "pageSize": page_size,
+            "srchTraStDt": srchTraStDt,
+            "srchTraEndDt": srchTraEndDt,
+            "srchTraOrganNm": organ,
+            "sort": sort,
+            "sortCol": sort_col,
         }
 
-        t0 = time.perf_counter()
-        cached = cache.get(self.CACHE_KEY)
+        # 동적 캐시키 (연/기관/페이지 등 포함 → 연도 바뀌면 자동 갱신)
+        cache_key = (
+            f"hrd:list:{organ}:{srchTraStDt}-{srchTraEndDt}:"
+            f"p{page_num}s{page_size}:sort{sort}-col{sort_col}"
+        )
 
+        t0 = time.perf_counter()
+        cached = cache.get(cache_key)
+        if cached:
+            # 캐시 우선 제공(필요 시 신선도 중시로 전략 바꾸면 이 블록을 제거)
+            resp = Response(cached, status=status.HTTP_200_OK)
+            resp["X-Cache"] = "HIT"
+            resp["X-Elapsed-ms"] = f"{(time.perf_counter()-t0)*1000:.1f}"
+            return resp
+
+        # 원격 호출 (실패 시 캐시 폴백)
         try:
-            resp = requests.get(API_URL, params=params, timeout=3)
-            resp.raise_for_status()
-            data = xmltodict.parse(resp.text)
+            r = requests.get(API_URL, params=params, timeout=3)
+            r.raise_for_status()
+            data = xmltodict.parse(r.text)
             items = data.get("HRDNet", {}).get("srchList", {}).get("scn_list", [])
             if isinstance(items, dict):
                 items = [items]
         except Exception as e:
-            # 네트워크/파싱 실패 → 스냅샷 폴백
             if cached:
                 resp = Response(cached, status=status.HTTP_200_OK)
                 resp["X-Cache"] = "HIT-FALLBACK"
@@ -55,10 +79,6 @@ class HRDLectureListView(APIView):
                 {"error": f"목록 조회 실패: {e}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-        items = data.get("HRDNet", {}).get("srchList", {}).get("scn_list", [])
-        if isinstance(items, dict):
-            items = [items]
 
         lectures = []
         for item in items:
@@ -73,6 +93,7 @@ class HRDLectureListView(APIView):
             except Exception:
                 continue
             if end < today:
+                # 종료된 과정은 제외
                 continue
 
             # 인원/상태
@@ -90,7 +111,7 @@ class HRDLectureListView(APIView):
                 else (f"D-{(start - today).days}" if start > today else "D-DAY")
             )
 
-            # torg_id 멀티키 추출(누락 방지)
+            # 기관ID 다양한 키에서 안전 추출
             torg_id = (
                 item.get("trainstCstmrId")
                 or item.get("trainstCstmrID")
@@ -109,8 +130,8 @@ class HRDLectureListView(APIView):
                     "process_time": item.get("trprDegr"),
                     "torg_id": torg_id,
                     "crse_tracse_se": item.get("trainTargetCd"),
-                    "start_date": item.get("traStartDate"),
-                    "end_date": item.get("traEndDate"),
+                    "start_date": start_str,
+                    "end_date": end_str,
                     "location": item.get("address"),
                     "summary": item.get("contents"),
                     "tel": item.get("telNo"),
@@ -128,8 +149,9 @@ class HRDLectureListView(APIView):
         page = paginator.paginate_queryset(lectures, request)
         response = paginator.get_paginated_response(page)
 
-        # ▲ 성공 시 스냅샷 저장
-        cache.set(self.CACHE_KEY, response.data, self.CACHE_TTL)
+        # ✅ 최신 성공 응답을 '동적 키'로 저장 (중요!)
+        cache.set(cache_key, response.data, self.CACHE_TTL)
+
         response["X-Cache"] = "MISS" if not cached else "REFRESH"
         response["X-Elapsed-ms"] = f"{(time.perf_counter()-t0)*1000:.1f}"
         return response
