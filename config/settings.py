@@ -119,6 +119,7 @@ INSTALLED_APPS = [
     "apps.certificates",
     "apps.gallery",
     "apps.popup",
+    "apps.exam_board",
 ]
 
 REST_FRAMEWORK = {
@@ -134,6 +135,12 @@ REST_FRAMEWORK = {
         "inquiries": "5/min",  # 수강문의: IP 기준 분당 5회
         "anon": "60/min",  # 전체 익명 요청 기본치
     },
+    "DEFAULT_PAGINATION_CLASS": "utils.pagination.CustomPageNumberPagination",
+    "PAGE_SIZE": 8,
+    "DEFAULT_FILTER_BACKENDS": [
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
 }
 
 from datetime import timedelta
@@ -181,7 +188,7 @@ TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
 
-# Static / Media
+# --- Static (공통) ---
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 # 압축/해시된 정적파일(WhiteNoise)
@@ -228,29 +235,44 @@ CSRF_TRUSTED_ORIGINS = _csv("CSRF_TRUSTED_ORIGINS") or [
 
 INSTALLED_APPS += ["storages"]
 
+# WhiteNoise는 staticfiles만 담당
 STORAGES = {
-    "default": {  # 업로드 파일 저장소
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-    },
-    "staticfiles": {  # 정적파일(화이트노이즈)
+    "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_S3_ENDPOINT_URL = os.getenv(
-    "AWS_S3_ENDPOINT_URL"
-)  # https://kr.object.ncloudstorage.com
-AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")  # 예: damoa-media
-AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", None)
-AWS_S3_SIGNATURE_VERSION = os.getenv("AWS_S3_SIGNATURE_VERSION", "s3v4")
-AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "virtual")
-AWS_DEFAULT_ACL = "public-read"  # 버킷을 전체 공개로 뒀다면 생략 가능
-AWS_QUERYSTRING_AUTH = False  # 깔끔한 공개 URL 선호 시
+# --- Media / Uploads ---
+if ENV == "production":
+    INSTALLED_APPS += ["storages"]
 
-AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.kr.object.ncloudstorage.com"
-MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+    # Naver Object Storage (S3 호환)
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_S3_ENDPOINT_URL = os.getenv(
+        "AWS_S3_ENDPOINT_URL"
+    )  # https://kr.object.ncloudstorage.com
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", None)
+    AWS_S3_SIGNATURE_VERSION = os.getenv("AWS_S3_SIGNATURE_VERSION", "s3v4")
+    AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "virtual")
+    AWS_DEFAULT_ACL = None  # 권한은 버킷 정책으로 관리 권장
+    AWS_QUERYSTRING_AUTH = False  # 공개 URL
+
+    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.kr.object.ncloudstorage.com"
+
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+    }
+    MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+
+else:
+    # 로컬/개발: 파일시스템 사용 (단위테스트/개발 편함)
+    STORAGES["default"] = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    }
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
 SPECTACULAR_SETTINGS = {
@@ -276,3 +298,6 @@ SPECTACULAR_SETTINGS = {
     # 스키마 자체(JSON)를 /api/docs 화면에 포함하지 않음(링크만)
     "SERVE_INCLUDE_SCHEMA": False,
 }
+
+DATA_UPLOAD_MAX_MEMORY_SIZE = 30 * 1024 * 1024  # 30MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 30 * 1024 * 1024

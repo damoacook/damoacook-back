@@ -3,6 +3,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
 
 # ─ 가상환경
 .venv/

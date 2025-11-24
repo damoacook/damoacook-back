@@ -24,6 +24,7 @@ urlpatterns = [
     path("api/certificates/", include("apps.certificates.urls")),
     path("api/gallery/", include("apps.gallery.urls")),
     path("api/popup/", include("apps.popup.urls")),
+    path("api/exam-board/", include("apps.exam_board.urls")),
     # OpenAPI 스키마 & 문서 ---
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
