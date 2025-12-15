@@ -233,18 +233,23 @@ CSRF_TRUSTED_ORIGINS = _csv("CSRF_TRUSTED_ORIGINS") or [
     "http://127.0.0.1:5173",
 ]
 
-INSTALLED_APPS += ["storages"]
+# INSTALLED_APPS += ["storages"]
 
 # WhiteNoise는 staticfiles만 담당
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
 }
 
 # --- Media / Uploads ---
 if ENV == "production":
-    INSTALLED_APPS += ["storages"]
+    # prod에서만 storages 앱 활성화
+    if "storages" not in INSTALLED_APPS:
+        INSTALLED_APPS.append("storages")
 
     # Naver Object Storage (S3 호환)
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")

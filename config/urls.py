@@ -43,11 +43,11 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # 운영에서도 임시로 media 서빙(환경변수로 on/off)
-if not settings.DEBUG and os.getenv("SERVE_MEDIA", "1") == "1":
-    urlpatterns += [
-        re_path(
-            r"^media/(?P<path>.*)$",
-            static_serve,
-            {"document_root": settings.MEDIA_ROOT, "show_indexes": False},
-        ),
-    ]
+# if not settings.DEBUG and os.getenv("SERVE_MEDIA", "1") == "1":
+#     urlpatterns += [
+#         re_path(
+#             r"^media/(?P<path>.*)$",
+#             static_serve,
+#             {"document_root": settings.MEDIA_ROOT, "show_indexes": False},
+#         ),
+#     ]
