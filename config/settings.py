@@ -240,39 +240,35 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
-    "default": {
-        "BACKEND": "django.core.files.storage.FileSystemStorage",
-    },
 }
 
 # --- Media / Uploads ---
 if ENV == "production":
-    # prod에서만 storages 앱 활성화
+    # prod: S3 + CloudFront
     if "storages" not in INSTALLED_APPS:
         INSTALLED_APPS.append("storages")
 
-    # Naver Object Storage (S3 호환)
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-    AWS_S3_ENDPOINT_URL = os.getenv(
-        "AWS_S3_ENDPOINT_URL"
-    )  # https://kr.object.ncloudstorage.com
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", None)
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")  # 예: ap-northeast-2
     AWS_S3_SIGNATURE_VERSION = os.getenv("AWS_S3_SIGNATURE_VERSION", "s3v4")
-    AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE", "virtual")
-    AWS_DEFAULT_ACL = None  # 권한은 버킷 정책으로 관리 권장
-    AWS_QUERYSTRING_AUTH = False  # 공개 URL
+    AWS_QUERYSTRING_AUTH = False
+    AWS_S3_FILE_OVERWRITE = False
 
-    AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.kr.object.ncloudstorage.com"
+    STORAGES["default"] = {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"}
 
-    STORAGES["default"] = {
-        "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-    }
+    # 1순위: CloudFront, 2순위: S3 웹 엔드포인트
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN")
+    if not AWS_S3_CUSTOM_DOMAIN and AWS_STORAGE_BUCKET_NAME and AWS_S3_REGION_NAME:
+        AWS_S3_CUSTOM_DOMAIN = (
+            f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+        )
+
     MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
 
 else:
-    # 로컬/개발: 파일시스템 사용 (단위테스트/개발 편함)
+    # local/dev: 파일시스템
     STORAGES["default"] = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     }

@@ -4,15 +4,15 @@ from .models import PopupBanner
 
 class PopupBannerSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
-    MAX_IMAGE_MB = 100  # 원하는 최대 용량(MB)
+    MAX_IMAGE_MB = 100
 
     class Meta:
         model = PopupBanner
         fields = (
             "id",
             "title",
-            "image",  # 업로드용(요청에서만 받기)
-            "image_url",  # 응답에서 쓸 절대 URL
+            "image",  # ← 쓰기/읽기 허용(읽기 시 절대 URL로 가공)
+            "image_url",  # ← 선택: 보조
             "link_url",
             "is_active",
             "created_at",
@@ -20,21 +20,17 @@ class PopupBannerSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("created_at", "updated_at")
         extra_kwargs = {
-            "image": {
-                "required": True,
-                "write_only": True,
-            },  # 응답에 파일필드 노출 안 함
+            # write_only 제거! 응답에도 image 포함
+            "image": {"required": True},
             "link_url": {"required": False, "allow_blank": True, "allow_null": True},
         }
 
     def validate_image(self, file):
         if not file:
             return file
-        # 콘텐츠 타입(이미지인지) 1차 검증
         ctype = getattr(file, "content_type", "") or ""
         if not ctype.startswith("image/"):
             raise serializers.ValidationError("이미지 파일만 업로드할 수 있습니다.")
-        # 용량 검증
         limit = self.MAX_IMAGE_MB * 1024 * 1024
         if file.size > limit:
             raise serializers.ValidationError(
@@ -42,10 +38,23 @@ class PopupBannerSerializer(serializers.ModelSerializer):
             )
         return file
 
+    def _abs_url(self, url: str):
+        req = self.context.get("request")
+        if req and url and url.startswith("/"):
+            return req.build_absolute_uri(url)
+        return url
+
     def get_image_url(self, obj):
         try:
-            url = obj.image.url
-            req = self.context.get("request")
-            return req.build_absolute_uri(url) if req and url.startswith("/") else url
+            return self._abs_url(obj.image.url)
         except Exception:
             return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        try:
+            data["image"] = self._abs_url(instance.image.url)
+        except Exception:
+            data["image"] = None
+        data["image_url"] = data.get("image")
+        return data
